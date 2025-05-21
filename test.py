@@ -44,11 +44,9 @@ agent = PG_Agent(state_shape=state_shape,
                     if_eval=True)
 
 # 4. 加载检查点
-print(f"Loading checkpoint from: D:\WORKS\py_works\RL_EXPERIMENT\mine\PG\models\PG_lunarlander_step_100.pth")
-checkpoint = torch.load("D:\WORKS\py_works\RL_EXPERIMENT\mine\PG\models\PG_lunarlander_step_19000.pth", map_location=device)
+checkpoint = torch.load("PG\models\PG_lunarlander_step_120000.pth", map_location=device)
 net.load_state_dict(checkpoint['net_state_dict'])
 start_episode = checkpoint.get('global_episode', 0)
-print(f"Resuming model from episode {start_episode}")
 
 # 5.开始测试
 torch.no_grad()

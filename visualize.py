@@ -1,47 +1,55 @@
 # visualize.py
 
 import torch
-import torch.optim as optim
-import torch.nn.functional as F
 import numpy as np
-import time
 import os
-from collections import deque
-import random
-from datetime import datetime 
 import matplotlib.pyplot as plt
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'  # 允许重复加载OpenMP库
-
-# 从其他模块导入
-from env import ImageLunarLanderEnv # 环境包装器
-from net import PG_Net     # 策略网络
-from agent import PG_Agent # Agent (负责交互)
-from config import CONFIG
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'  
+from config import CONFIG 
 
 device = torch.device(CONFIG['device'])
 
-print(f"Loading checkpoint from: {CONFIG['checkpoint_path']}")
-checkpoint = torch.load("D:\WORKS\py_works\RL_EXPERIMENT\mine\PG\models\PG_lunarlander_step_60000.pth", map_location=device)
+def moving_average(data, window_size):
+    """ 计算一维数据的滑动平均值 """
+    # 使用卷积计算滑动平均
+    # 'valid'模式确保输出的每个点都是由完整的窗口计算得出的
+    return np.convolve(data, np.ones(window_size), 'valid') / window_size
+
+checkpoint = torch.load("PG\models\PG_lunarlander_step_120000.pth", map_location=device)
 start_episode = checkpoint.get('global_episode', 0)
 history_loss = checkpoint.get('history_loss', [])
 history_G = checkpoint.get('history_G', [])
-print(f"Resuming training from episode {start_episode}")
 
-def visualize(history_g, history_loss):
-    history_g_np = np.array(history_g)   
-    history_loss_np = np.array(history_loss) 
-    plt.figure(figsize=(12, 5))
+# --- Visualize ---
+def visualize(history_g, history_loss, moving_avg_window=100):
+    history_g_np = np.array(history_g)
+    history_loss_np = np.array(history_loss)
+    plt.figure(figsize=(15, 6)) # Increased figure width for better readability
 
     plt.subplot(1, 2, 1)
-    plt.plot(history_g_np, label='Episodic Return (G)', alpha=0.6)
+    plt.plot(history_g_np, label='Episodic Return (G)', alpha=0.5, color='skyblue') # Made original plot lighter
+
+    # Calculate and plot moving average for G
+
+    avg_G = moving_average(history_g_np, moving_avg_window)
+    # X-axis for moving average needs to be adjusted because 'valid' convolution shortens the array
+    # The first point of avg_returns corresponds to the average of history_g_np[0:window_size]
+    # So it should be plotted starting from episode `window_size - 1` (0-indexed) or `window_size` (1-indexed)
+    # More precisely, the k-th point of avg_returns is the average over elements up to index (k + window_size - 1) of the original array.
+    # We can plot it against the episode number corresponding to the *end* of each window.
+    plt.plot(np.arange(moving_avg_window - 1, len(history_g_np)), avg_G,
+                label=f'Moving Avg Return (Window {moving_avg_window})', color='dodgerblue', linewidth=2)
     plt.xlabel('Episode')
     plt.ylabel('Return (G)')
     plt.title('Episodic Return over Training')
     plt.legend()
     plt.grid(True)
-   
+
     plt.subplot(1, 2, 2)
-    plt.plot(history_loss_np, label='Loss', color='green', alpha=0.6)
+    plt.plot(history_loss_np, label='Loss', color='mediumseagreen', alpha=0.7) 
+    avg_loss = moving_average(history_loss_np, moving_avg_window)
+    plt.plot(np.arange(moving_avg_window - 1, len(history_loss_np)), avg_loss,
+                label=f'Moving Avg Loss (Window {moving_avg_window})', color='darkgreen', linewidth=2)
     plt.xlabel('Episode')
     plt.ylabel('Loss')
     plt.title('Loss over Training')
@@ -51,4 +59,4 @@ def visualize(history_g, history_loss):
     plt.tight_layout()
     plt.show()
 
-visualize(history_G,history_loss)
+visualize(history_G, history_loss, moving_avg_window=100) 
